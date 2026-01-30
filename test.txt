@@ -6,6 +6,3 @@ This file can be modified to trigger PUSH events for testing the GitHub webhook 
 
 - Initial commit.
 -
-- 2026-01-29 05:44:05,946 - app - WARNING - Signature mismatch. 
-Expected: 2d8557d1475b873006fabe6488cde28be919f10636d9006f4812e7ec87f800aa, 
-Got: 2d8557d1475b873006fabe6488cde28be919f10636d9006f4812e7ec87f800aa
