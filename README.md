@@ -1,199 +1,165 @@
-# Action Repository
+# How to Test the GitHub Webhook Integration
 
-This is a dummy repository used to trigger GitHub webhooks for testing the webhook receiver application.
+This guide provides step-by-step instructions to test all features of the GitHub Webhook integration, including push events, pull requests, and merge events.
 
-## Purpose
+## Table of Contents
 
-This repository is set up to send webhook events to the `webhook-repo` Flask application when the following actions occur:
+- [Prerequisites](#prerequisites)
+- [Test Script](#test-script)
+- [Running the Tests](#running-the-tests)
+- [Verifying the Results](#verifying-the-results)
+- [Troubleshooting](#troubleshooting)
+- [Cleaning Up](#cleaning-up)
+- [Viewing Events](#viewing-events)
 
-- **PUSH**: When commits are pushed to any branch
-- **PULL_REQUEST**: When pull requests are opened or reopened
-- **MERGE**: When pull requests are merged
+## Prerequisites
 
-## Setup
+1. **Clone the Action Repository**:
+   ```bash
+   git clone https://github.com/singhHarcharan/TechStaX-Assignment-ActionRepo.git
+   cd TechStaX-Assignment-ActionRepo
+   ```
 
-### 1. Create This Repository on GitHub
+2. **Ensure you have**:
+   - Git installed on your system
+   - Proper GitHub authentication set up
+   - Access to the webhook receiver interface
 
-```bash
-# Initialize the repository
-git init
-echo "# Action Repository for GitHub Webhooks" > README.md
-git add README.md
-git commit -m "Initial commit"
+## Test Script
 
-# Add remote and push
-git remote add origin <your-action-repo-url>
-git push -u origin main
-```
-
-### 2. Configure Webhook
-
-1. Go to repository **Settings** → **Webhooks** → **Add webhook**
-2. Configure:
-   - **Payload URL**: `https://your-webhook-url.com/webhook` (from ngrok or deployment)
-   - **Content type**: `application/json`
-   - **Secret**: Your webhook secret (optional but recommended)
-   - **Events**: 
-     - ✅ Pushes
-     - ✅ Pull requests
-   - **Active**: ✅ Checked
-3. Save the webhook
-
-## Testing Events
-
-### Test PUSH Event
+Create a new file named `test_webhooks.sh` with the following content:
 
 ```bash
-# Make a change
-echo "Test push at $(date)" >> test.txt
-git add test.txt
-git commit -m "Test push event"
+#!/bin/bash
+set -e  # Exit on error
+
+# Navigate to repository
+cd "$(dirname "$0")"
+
+# Function to print section headers
+section() {
+    echo -e "\n\033[1;34m=== $1 ===\033[0m"
+}
+
+# 1. Test Push Event
+section "Testing Push Event"
+git checkout main
+git pull origin main
+echo "Test push - $(date)" > push_test.txt
+git add push_test.txt
+git commit -m "Test push event - $(date)"
 git push origin main
-```
+echo "✅ Push event triggered. Check your webhook receiver for the event."
 
-### Test PULL_REQUEST Event
+# 2. Test Pull Request Event
+section "Testing Pull Request"
+git checkout -b test-pr 2>/dev/null || git checkout test-pr
+echo "PR test - $(date)" > pr_test.txt
+git add pr_test.txt
+git commit -m "Test PR changes - $(date)"
+git push -f -u origin test-pr
+echo "✅ PR branch pushed. Please create a PR from 'test-pr' to 'main' on GitHub."
 
-```bash
-# Create a new branch
-git checkout -b feature/test-pr
+# 3. Test Merge Event
+section "Testing Merge"
+git checkout -b test-merge 2>/dev/null || git checkout test-merge
+echo "Merge test - $(date)" > merge_test.txt
+git add merge_test.txt
+git commit -m "Test merge changes - $(date)"
+git push -f -u origin test-merge
+echo "✅ Merge branch pushed. Please create and merge a PR from 'test-merge' to 'main' on GitHub."
 
-# Make changes
-echo "Test feature" > feature.txt
-git add feature.txt
-git commit -m "Add test feature"
-git push origin feature/test-pr
+section "Testing Complete"
+echo "All test events have been triggered. Check your webhook receiver for the events."
 
-# Then create a Pull Request on GitHub UI
-```
+## Running the Tests
 
-### Test MERGE Event (Brownie Points!)
+1. **Make the script executable**:
+   ```bash
+   chmod +x test_webhooks.sh
+   ```
 
-1. Go to the Pull Request you created
-2. Click **Merge pull request**
-3. Confirm the merge
+2. **Run the test script**:
+   ```bash
+   ./test_webhooks.sh
+   ```
 
-This will trigger a MERGE webhook event!
+3. **Complete the manual steps**:
+   - Go to your GitHub repository
+   - Create a PR from `test-pr` to `main` (but don't merge it)
+   - Create another PR from `test-merge` to `main` and merge it
 
-## Webhook Payload Examples
+## Verifying the Results
 
-### PUSH Event Payload
-```json
-{
-  "ref": "refs/heads/main",
-  "after": "abc123...",
-  "pusher": {
-    "name": "YourUsername"
-  },
-  "head_commit": {
-    "timestamp": "2021-04-01T21:30:00Z"
-  }
-}
-```
+### Expected Outputs:
 
-### PULL_REQUEST Event Payload
-```json
-{
-  "action": "opened",
-  "pull_request": {
-    "number": 1,
-    "user": {
-      "login": "YourUsername"
-    },
-    "head": {
-      "ref": "feature-branch"
-    },
-    "base": {
-      "ref": "main"
-    },
-    "created_at": "2021-04-01T09:00:00Z"
-  }
-}
-```
+1. **Push Event**:
+   - Should appear immediately after the first section runs
+   - Format: `{user} pushed to {branch} on {timestamp}`
 
-### MERGE Event Payload
-```json
-{
-  "action": "closed",
-  "pull_request": {
-    "number": 1,
-    "merged": true,
-    "merged_by": {
-      "login": "YourUsername"
-    },
-    "head": {
-      "ref": "feature-branch"
-    },
-    "base": {
-      "ref": "main"
-    },
-    "merged_at": "2021-04-02T12:00:00Z"
-  }
-}
-```
+2. **Pull Request Event**:
+   - Should appear when you create the PR from `test-pr` to `main`
+   - Format: `{user} submitted a pull request from {from_branch} to {to_branch} on {timestamp}`
 
-## Verification
-
-After triggering events, verify they're being received:
-
-1. Check GitHub webhook deliveries:
-   - Go to **Settings** → **Webhooks** → Select your webhook
-   - Click **Recent Deliveries**
-   - Verify response status is `200 OK`
-
-2. Check your webhook application UI:
-   - Open `http://your-webhook-url.com`
-   - Verify events appear in the list
-   - Confirm data is formatted correctly
+3. **Merge Event**:
+   - Should appear when you merge the PR from `test-merge` to `main`
+   - Format: `{user} merged branch {from_branch} to {to_branch} on {timestamp}`
 
 ## Troubleshooting
 
-### Webhook Shows 4xx/5xx Error
-- Verify your webhook URL is correct and accessible
-- Check webhook secret matches between GitHub and your app
-- Review webhook delivery response body for error details
+### Common Issues:
 
-### Events Not Appearing in UI
-- Verify MongoDB is running and connected
-- Check webhook receiver application logs
-- Ensure events are being stored in database
+1. **Authentication Errors**:
+   ```bash
+   # Ensure you have proper Git credentials
+   git config --global user.name "Your Name"
+   git config --global user.email "your.email@example.com"
+   ```
 
-### MERGE Events Not Captured
-- Verify webhook is configured for "Pull requests" events
-- Ensure you're merging PRs (not just closing them)
-- Check webhook payload in GitHub delivery logs
+2. **Webhook Not Triggering**:
+   - Verify the webhook is properly configured in your GitHub repository settings
+   - Check the webhook URL is correct
+   - Ensure the webhook secret matches your configuration
 
-## Sample Workflow
+3. **Viewing Logs**:
+   ```bash
+   # If using Render
+   render logs
+   
+   # If using Heroku
+   heroku logs --tail
+   ```
+
+## Cleaning Up
+
+After testing, clean up the test branches:
 
 ```bash
-# 1. Clone this repository
-git clone <your-action-repo-url>
-cd action-repo
+# Delete local branches
+git checkout main
+git branch -D test-pr test-merge 2>/dev/null || true
 
-# 2. Create and push changes (triggers PUSH)
-echo "Change 1" >> test.txt
-git add test.txt
-git commit -m "Test change 1"
-git push origin main
+# Delete remote branches
+git push origin --delete test-pr test-merge 2>/dev/null || true
 
-# 3. Create feature branch (triggers PULL_REQUEST)
-git checkout -b feature/new-feature
-echo "New feature" >> feature.txt
-git add feature.txt
-git commit -m "Add new feature"
-git push origin feature/new-feature
-# Create PR on GitHub
-
-# 4. Merge PR on GitHub (triggers MERGE)
-# Go to GitHub and merge the PR
+# Remove test files
+rm -f push_test.txt pr_test.txt merge_test.txt 2>/dev/null || true
 ```
 
-## Notes
+## Viewing Events
 
-- Keep this repository minimal - it's just for testing
-- You can add dummy files to test different scenarios
-- All webhook events will be captured and displayed in real-time
-- The webhook receiver polls MongoDB every 15 seconds for updates
+All events are stored in MongoDB and can be viewed in the web interface at:
+`https://techstax-assignment-webhook.onrender.com`
 
-## Author
+The interface automatically refreshes every 15 seconds to show new events.
 
-Created for TechStax Developer Assessment
+---
+
+For any additional help, please refer to the project documentation or open an issue in the repository.
+### Next Steps:
+ 
+1. Commit and push the new documentation:
+   ```bash
+   git add README.md
+   git commit -m "Add comprehensive testing guide"
+   git push origin main
